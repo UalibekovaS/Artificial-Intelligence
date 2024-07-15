@@ -101,9 +101,26 @@ def joinFactors(factors: List[Factor]):
                     "\n".join(map(str, factors)))
 
 
-    "*** YOUR CODE HERE ***"
-    raiseNotDefined()
-    "*** END YOUR CODE HERE ***"
+    factors_list = list(factors)
+    variable_domains = factors_list[0].variableDomainsDict()
+    unconditioned_vars = set()
+    conditioned_vars = set()
+
+    for factor in factors_list:
+        unconditioned_vars.update(factor.unconditionedVariables())
+        conditioned_vars.update(factor.conditionedVariables())
+
+    conditioned_vars -= unconditioned_vars
+    resulting_factor = Factor(unconditioned_vars, conditioned_vars, variable_domains)
+
+    for assignment in resulting_factor.getAllPossibleAssignmentDicts():
+        probability = 1
+        for factor in factors_list:
+            probability *= factor.getProbability(assignment)
+        resulting_factor.setProbability(assignment, probability)
+
+    return resulting_factor
+
 
 ########### ########### ###########
 ########### QUESTION 3  ###########
@@ -152,9 +169,22 @@ def eliminateWithCallTracking(callTrackingList=None):
                     "eliminationVariable:" + str(eliminationVariable) + "\n" +\
                     "unconditionedVariables: " + str(factor.unconditionedVariables()))
 
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
-        "*** END YOUR CODE HERE ***"
+        unconditioned_vars = set(factor.unconditionedVariables())
+        unconditioned_vars.discard(eliminationVariable)
+
+        conditioned_vars = set(factor.conditionedVariables())
+        variableDomainsDict = factor.variableDomainsDict()
+
+        result_factor = Factor(unconditioned_vars, conditioned_vars, variableDomainsDict)
+
+        for assignmentDict in result_factor.getAllPossibleAssignmentDicts():
+            prob = 0    
+            for elim_value in variableDomainsDict[eliminationVariable]:
+                extended_assignmentDict = {**assignmentDict, eliminationVariable: elim_value}
+                prob += factor.getProbability(extended_assignmentDict)
+            result_factor.setProbability(assignmentDict, prob)
+
+        return result_factor
 
     return eliminate
 
