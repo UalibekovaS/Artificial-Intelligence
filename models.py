@@ -37,8 +37,8 @@ class PerceptronModel(Module):
         super(PerceptronModel, self).__init__()
         
         "*** YOUR CODE HERE ***"
-        self.w = None #Initialize your weights here
-
+        self.w = Parameter(ones((1, dimensions)))
+        
     def get_weights(self):
         """
         Return a Parameter instance with the current weights of the perceptron.
@@ -56,6 +56,8 @@ class PerceptronModel(Module):
         The pytorch function `tensordot` may be helpful here.
         """
         "*** YOUR CODE HERE ***"
+        score = tensordot(x, self.w, dims=([1], [1]))  
+        return score
 
 
     def get_prediction(self, x):
@@ -65,6 +67,8 @@ class PerceptronModel(Module):
         Returns: 1 or -1
         """
         "*** YOUR CODE HERE ***"
+        score = self.run(x)
+        return 1 if score >= 0 else -1
 
 
 
@@ -80,6 +84,17 @@ class PerceptronModel(Module):
         with no_grad():
             dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
             "*** YOUR CODE HERE ***"
+            is_converged = False
+            while not is_converged:
+                is_converged = True
+                for batch in dataloader:
+                    x = batch['x']
+                    y = batch['label']
+                    prediction = self.get_prediction(x)
+                    if prediction != y:
+                        self.w += y * x
+                        is_converged = False
+
 
 
 
@@ -93,6 +108,14 @@ class RegressionModel(Module):
         # Initialize your model parameters here
         "*** YOUR CODE HERE ***"
         super().__init__()
+        self.hidden_layer_size = 200
+        self.batch_size = 100
+        self.learning_rate = 0.001
+
+        self.W1 = Parameter(tensor(ones(1, self.hidden_layer_size).uniform_(-1, 1)))
+        self.b1 = Parameter(tensor(ones(1, self.hidden_layer_size).uniform_(-1, 1)))
+        self.W2 = Parameter(tensor(ones(self.hidden_layer_size, 1).uniform_(-1, 1)))
+        self.b2 = Parameter(tensor(ones(1, 1).uniform_(-1, 1)))
 
 
 
@@ -106,6 +129,10 @@ class RegressionModel(Module):
             A node with shape (batch_size x 1) containing predicted y-values
         """
         "*** YOUR CODE HERE ***"
+        output_vector1 = tensordot(x, self.W1, dims=([-1], [0])) + self.b1
+        relu_output = relu(output_vector1)
+        output_vector2 = tensordot(relu_output, self.W2, dims=([-1], [0])) + self.b2
+        return output_vector2
 
     
     def get_loss(self, x, y):
@@ -119,6 +146,8 @@ class RegressionModel(Module):
         Returns: a tensor of size 1 containing the loss
         """
         "*** YOUR CODE HERE ***"
+        predictions = self.forward(x)
+        return mse_loss(predictions, y)
  
   
 
@@ -137,6 +166,25 @@ class RegressionModel(Module):
             
         """
         "*** YOUR CODE HERE ***"
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        optimizer = optim.SGD([self.W1, self.W2, self.b1, self.b2], lr=self.learning_rate)
+        epoch = 0
+        while True:
+            for batch in dataloader:
+                x_batch = batch['x'].float()  # Ensure x_batch is (batch_size, 1)
+                y_batch = batch['label'].float()
+
+                optimizer.zero_grad()
+                loss = self.get_loss(x_batch, y_batch)
+                loss.backward()
+                optimizer.step()
+
+            epoch += 1
+            print(f'Epoch {epoch}, Loss: {loss.item()}')
+            if loss.item() <= 0.01:
+                print('Loss below threshold, stopping training.')
+                break
+
 
 
             
@@ -164,10 +212,16 @@ class DigitClassificationModel(Module):
     def __init__(self):
         # Initialize your model parameters here
         super().__init__()
-        input_size = 28 * 28
-        output_size = 10
+        self.input_size = 28 * 28
+        self.output_size = 10
         "*** YOUR CODE HERE ***"
-
+        self.hidden_layer_size = 200
+        self.batch_size = 16
+        self.learning_rate = 0.1
+        self.W1 = Parameter(ones((self.input_size, self.hidden_layer_size)).uniform_(-0.05, 0.05))
+        self.b1 = Parameter(ones((self.hidden_layer_size,)).uniform_(-0.05, 0.05))
+        self.W2 = Parameter(ones((self.hidden_layer_size, self.output_size)).uniform_(-0.05, 0.05))
+        self.b2 = Parameter(ones((self.output_size,)).uniform_(-0.05, 0.05))
 
 
     def run(self, x):
@@ -185,6 +239,11 @@ class DigitClassificationModel(Module):
                 (also called logits)
         """
         """ YOUR CODE HERE """
+        output_vector1 = tensordot(x, self.W1, dims=([-1], [0])) + self.b1
+        relu_output = relu(output_vector1)
+        output_vector2 = tensordot(relu_output, self.W2, dims=([-1], [0])) + self.b2
+        return output_vector2
+
 
 
     def get_loss(self, x, y):
@@ -201,6 +260,8 @@ class DigitClassificationModel(Module):
         Returns: a loss tensor
         """
         """ YOUR CODE HERE """
+        predictions = self.run(x)
+        return cross_entropy(predictions, y)
 
         
 
@@ -209,6 +270,33 @@ class DigitClassificationModel(Module):
         Trains the model.
         """
         """ YOUR CODE HERE """
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        optimizer = optim.SGD(self.parameters(), lr=self.learning_rate)
+        num_epochs = 10
+        for epoch in range(num_epochs):
+            total_loss = 0
+            for batch in dataloader:
+                x_batch = batch['x'].float()  # Ensure x_batch is (batch_size, num_chars)
+                y_batch = batch['label']  # Labels should be integers
+
+                optimizer.zero_grad()
+                loss = self.get_loss(x_batch, y_batch)
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item()
+
+            avg_loss = total_loss / len(dataloader)
+            print(f'Epoch {epoch}, Avg Loss: {avg_loss}')
+
+            # Validation check
+            val_accuracy = dataset.get_validation_accuracy()
+            if val_accuracy >= 0.975:
+                print(f"Validation accuracy: {val_accuracy} - Target met.")
+                break
+
+            print(f"Validation accuracy: {val_accuracy}")
+
 
 
 
@@ -229,7 +317,14 @@ class LanguageIDModel(Module):
         self.languages = ["English", "Spanish", "Finnish", "Dutch", "Polish"]
         super(LanguageIDModel, self).__init__()
         "*** YOUR CODE HERE ***"
-        # Initialize your model parameters here
+        self.hidden_layer_size = 200
+        self.batch_size = 32
+        self.learning_rate = 0.15
+        self.W_x = Parameter(ones((self.num_chars, self.hidden_layer_size)).uniform_(-0.05, 0.05))
+        self.W_hidden = Parameter(ones((self.hidden_layer_size, self.hidden_layer_size)).uniform_(-0.05, 0.05))
+        self.W_output = Parameter(ones((self.hidden_layer_size, len(self.languages))).uniform_(-0.05, 0.05))
+        self.b_hidden = Parameter(ones((self.hidden_layer_size,)).uniform_(-0.05, 0.05))
+        self.b_output = Parameter(ones((len(self.languages),)).uniform_(-0.05, 0.05))
 
 
     def run(self, xs):
@@ -262,6 +357,14 @@ class LanguageIDModel(Module):
                 (also called logits)
         """
         "*** YOUR CODE HERE ***"
+        h = relu(tensordot(xs[0], self.W_x, dims=([1], [0])) + self.b_hidden)
+        
+        for x in xs[1:]:
+            z = tensordot(x, self.W_x, dims=([1], [0])) + tensordot(h, self.W_hidden, dims=([1], [0])) + self.b_hidden
+            h = relu(z)
+        
+        output_vector = tensordot(h, self.W_output, dims=([1], [0])) + self.b_output
+        return output_vector
 
     
     def get_loss(self, xs, y):
@@ -279,6 +382,9 @@ class LanguageIDModel(Module):
         Returns: a loss node
         """
         "*** YOUR CODE HERE ***"
+        logits = self.run(xs)
+        loss = cross_entropy(logits, y)
+        return loss
 
 
     def train(self, dataset):
@@ -296,6 +402,31 @@ class LanguageIDModel(Module):
         For more information, look at the pytorch documentation of torch.movedim()
         """
         "*** YOUR CODE HERE ***"
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        optimizer = optim.SGD(self.parameters(), lr=self.learning_rate)
+        num_epochs = 20
+        
+        for epoch in range(num_epochs):
+            total_loss = 0
+            for batch in dataloader:
+                x_batch = movedim(batch['x'], 1, 0)  # Switch dimensions to (length, batch_size, num_chars)
+                y_batch = batch['label']
+                
+                optimizer.zero_grad()
+                loss = self.get_loss(x_batch, y_batch)
+                loss.backward()
+                optimizer.step()
+                
+                total_loss += loss.item()
+            
+            avg_loss = total_loss / len(dataloader)
+            print(f'Epoch {epoch}, Avg Loss: {avg_loss}')
+            
+            val_accuracy = dataset.get_validation_accuracy()
+            print(f"Validation accuracy: {val_accuracy}")
+            if val_accuracy >= 0.85:
+                print(f"Validation accuracy: {val_accuracy} - Target met.")
+                break
 
         
 
