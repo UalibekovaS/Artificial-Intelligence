@@ -276,8 +276,8 @@ class DigitClassificationModel(Module):
         for epoch in range(num_epochs):
             total_loss = 0
             for batch in dataloader:
-                x_batch = batch['x'].float()  # Ensure x_batch is (batch_size, num_chars)
-                y_batch = batch['label']  # Labels should be integers
+                x_batch = batch['x'].float()  
+                y_batch = batch['label']  
 
                 optimizer.zero_grad()
                 loss = self.get_loss(x_batch, y_batch)
@@ -289,7 +289,6 @@ class DigitClassificationModel(Module):
             avg_loss = total_loss / len(dataloader)
             print(f'Epoch {epoch}, Avg Loss: {avg_loss}')
 
-            # Validation check
             val_accuracy = dataset.get_validation_accuracy()
             if val_accuracy >= 0.975:
                 print(f"Validation accuracy: {val_accuracy} - Target met.")
@@ -318,8 +317,8 @@ class LanguageIDModel(Module):
         super(LanguageIDModel, self).__init__()
         "*** YOUR CODE HERE ***"
         self.hidden_layer_size = 200
-        self.batch_size = 32
-        self.learning_rate = 0.15
+        self.batch_size = 16
+        self.learning_rate = 0.1
         self.W_x = Parameter(ones((self.num_chars, self.hidden_layer_size)).uniform_(-0.05, 0.05))
         self.W_hidden = Parameter(ones((self.hidden_layer_size, self.hidden_layer_size)).uniform_(-0.05, 0.05))
         self.W_output = Parameter(ones((self.hidden_layer_size, len(self.languages))).uniform_(-0.05, 0.05))
@@ -404,7 +403,7 @@ class LanguageIDModel(Module):
         "*** YOUR CODE HERE ***"
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
         optimizer = optim.SGD(self.parameters(), lr=self.learning_rate)
-        num_epochs = 20
+        num_epochs = 30
         
         for epoch in range(num_epochs):
             total_loss = 0
